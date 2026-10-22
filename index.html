@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Industrial Predictive Maintenance</title>
+<style>
+body{font-family:Arial,sans-serif;background:#eef2f7;color:#172033;margin:0}
+header{background:#12243a;color:white;padding:24px;text-align:center}
+main{padding:22px;max-width:1200px;margin:auto}
+.cards{display:flex;gap:15px;flex-wrap:wrap}
+.card{background:white;padding:18px;border-radius:9px;flex:1;min-width:160px;box-shadow:0 2px 7px #ccd3dd}
+h2{color:#173c63}
+select{padding:9px;margin:5px 12px 15px 0}
+table{border-collapse:collapse;width:100%;background:white;margin-bottom:25px}
+th,td{padding:11px;border:1px solid #d5dce5;text-align:left}
+th{background:#173c63;color:white}
+.warning{color:#bd3b24;font-weight:bold}
+.normal{color:#14804a;font-weight:bold}
+.panel{overflow-x:auto;margin-top:24px}
+</style>
+</head>
+<body>
+<header>
+<h1>Industrial Predictive Maintenance Dashboard</h1>
+<p>Equipment Monitoring | Production Analytics | Maintenance Alerts</p>
+</header>
+<main>
+<div class="cards">
+<div class="card"><h3>Total Machines</h3><h2 id="total">0</h2></div>
+<div class="card"><h3>Operational Machines</h3><h2 id="operational">0</h2></div>
+<div class="card"><h3>Total Downtime</h3><h2 id="downtime">0 h</h2></div>
+<div class="card"><h3>Highest Maintenance Risk</h3><h2 id="highest">-</h2></div>
+</div>
+
+<h2>Equipment Monitoring</h2>
+<label>Status:
+<select id="statusFilter" onchange="render()">
+<option value="All">All</option>
+<option value="Operational">Operational</option>
+<option value="Warning">Warning</option>
+<option value="Down">Down</option>
+</select>
+</label>
+<label>Production Unit:
+<select id="unitFilter" onchange="render()">
+<option value="All">All</option>
+<option>Assembly</option>
+<option>Packaging</option>
+<option>Machining</option>
+<option>Utilities</option>
+<option>Finishing</option>
+</select>
+</label>
+
+<div class="panel">
+<table>
+<thead><tr>
+<th>Machine ID</th><th>Production Unit</th><th>Operating Hours</th>
+<th>Temperature °C</th><th>Vibration mm/s</th><th>Status</th>
+<th>Maintenance Due</th><th>Downtime (h)</th><th>Alert</th>
+</tr></thead>
+<tbody id="machineRows"></tbody>
+</table>
+</div>
+
+<h2>Maintenance Priority Table</h2>
+<div class="panel">
+<table>
+<thead><tr><th>Priority</th><th>Machine</th><th>Severity</th>
+<th>Risk Score</th><th>Recommended Action</th></tr></thead>
+<tbody id="priorityRows"></tbody>
+</table>
+</div>
+</main>
+
+<script>
+const machines=[
+{id:"M101",unit:"Assembly",hours:5200,temp:74,vibration:3.1,status:"Operational",due:"2026-11-05",downtime:1.2},
+{id:"M102",unit:"Packaging",hours:7200,temp:86,vibration:5.8,status:"Warning",due:"2026-10-25",downtime:6.5},
+{id:"M103",unit:"Machining",hours:8100,temp:78,vibration:8.4,status:"Warning",due:"2026-10-24",downtime:9.1},
+{id:"M104",unit:"Utilities",hours:4200,temp:66,vibration:2.2,status:"Operational",due:"2026-11-18",downtime:0.4},
+{id:"M105",unit:"Finishing",hours:9100,temp:92,vibration:9.6,status:"Down",due:"2026-10-22",downtime:14.8},
+{id:"M106",unit:"Assembly",hours:6300,temp:82,vibration:7.4,status:"Warning",due:"2026-10-26",downtime:4.3}
+];
+
+function risk(m){
+return Math.min(100,Math.round(Math.max(0,m.temp-65)*1.25+
+Math.max(0,m.vibration-2)*7+(m.status==="Down"?30:0)+m.downtime*1.2));
+}
+function hasAlert(m){return m.temp>80||m.vibration>7;}
+
+function render(){
+const status=document.getElementById("statusFilter").value;
+const unit=document.getElementById("unitFilter").value;
+const filtered=machines.filter(m=>
+(status==="All"||m.status===status)&&(unit==="All"||m.unit===unit));
+
+document.getElementById("total").textContent=machines.length;
+document.getElementById("operational").textContent=
+machines.filter(m=>m.status==="Operational").length;
+document.getElementById("downtime").textContent=
+machines.reduce((sum,m)=>sum+m.downtime,0).toFixed(1)+" h";
+
+const highest=[...machines].sort((a,b)=>risk(b)-risk(a))[0];
+document.getElementById("highest").textContent=
+highest.id+" ("+risk(highest)+"/100)";
+
+document.getElementById("machineRows").innerHTML=filtered.map(m=>`
+<tr>
+<td>${m.id}</td><td>${m.unit}</td><td>${m.hours}</td>
+<td>${m.temp}</td><td>${m.vibration}</td>
+<td>${m.status}</td><td>${m.due}</td><td>${m.downtime}</td>
+<td class="${hasAlert(m)?"warning":"normal"}">
+${hasAlert(m)?"WARNING: Abnormal reading":"Normal"}
+</td></tr>`).join("")||"<tr><td colspan='9'>No machines found</td></tr>";
+
+const ranked=[...filtered].sort((a,b)=>risk(b)-risk(a));
+document.getElementById("priorityRows").innerHTML=ranked.map((m,i)=>`
+<tr><td>${i+1}</td><td>${m.id}</td>
+<td class="${risk(m)>=70?"warning":"normal"}">
+${risk(m)>=70?"Critical":risk(m)>=40?"High":"Moderate"}</td>
+<td>${risk(m)}/100</td>
+<td>${m.status==="Down"?"Inspect immediately and isolate machine":
+hasAlert(m)?"Inspect sensor, bearings and cooling system":
+"Continue monitoring and schedule routine inspection"}</td>
+</tr>`).join("");
+}
+render();
+</script>
+</body>
+</html>
